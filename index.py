@@ -1,10 +1,10 @@
-import wsgiref.handlers, urlparse, StringIO, logging, base64, zlib, os, sys
+import wsgiref.handlers, urlparse, base64
 from google.appengine.ext import webapp
 from google.appengine.api import urlfetch
 from google.appengine.api import urlfetch_errors
 
 class MainPage(webapp.RequestHandler):
-    serverName = 'GTAP / 0.2'
+    serverName = 'GTAP / 0.3'
 
     def myOutput(self, contentType, content):
         self.response.status = '200 OK'
@@ -19,26 +19,25 @@ class MainPage(webapp.RequestHandler):
         if path == '/' and method == 'get':
             self.myOutput('text/html', 'Thank you for using %s!' % (self.serverName))
         else:
-            try:
+            if 'Authorization' not in self.request.headers :
+                headers = {}
+            else:
                 auth_header = self.request.headers['Authorization']
                 auth_parts = auth_header.split(' ')
                 user_pass_parts = base64.b64decode(auth_parts[1]).split(':')
                 user_arg = user_pass_parts[0]
                 pass_arg = user_pass_parts[1]
-
-                netloc = 'twitter.com'
-                newUrl = urlparse.urlunparse((scm, netloc, path, params, query, ''))
-
                 base64string = base64.encodestring('%s:%s' % (user_arg, pass_arg))[:-1]
                 headers = {'Authorization': "Basic %s" % base64string}
 
-                data = urlfetch.fetch(newUrl, payload=origBody, method=method, headers=headers)
-                self.response.out.write(data.content)
+            netloc = 'twitter.com'
+            newUrl = urlparse.urlunparse((scm, netloc, path, params, query, ''))
+            
+            data = urlfetch.fetch(newUrl, payload=origBody, method=method, headers=headers)
+            self.response.status = data.status_code
+            self.response.headers = data.headers
+            self.response.out.write(data.content)
 
-            except Exception, e:
-                self.response.set_status(401, message="Authorization Required")
-                self.response.headers['WWW-Authenticate'] = 'Basic realm="Secure Area"'
-                self.response.out.write("Requires Basec Authorization!!\r\n\r\n")
 
     def post(self):
         self.doProxy('post')
