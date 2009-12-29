@@ -17,7 +17,7 @@ class MainPage(webapp.RequestHandler):
         origBody = self.request.body
         (scm, netloc, path, params, query, _) = urlparse.urlparse(origUrl)
         if path == '/':
-            self.myOutput('text/html', 'Thank you for using GTAP on version %s !' % (gtapVersion))
+            self.myOutput('text/html', 'here is the proxy of \"twitter.com\" by GTAP %s !' % (gtapVersion))
         else:
             if 'Authorization' not in self.request.headers :
                 headers = {}
@@ -42,12 +42,15 @@ class MainPage(webapp.RequestHandler):
                 netloc = 'twitter.com'
                 newpath = path
 
-            newUrl = urlparse.urlunparse((scm, netloc, newpath, params, query, ''))
-            
-            data = urlfetch.fetch(newUrl, payload=origBody, method=method, headers=headers)
-            self.response.status = data.status_code
-            self.response.headers = data.headers
-            self.response.out.write(data.content)
+            if newpath == '/':
+                self.myOutput('text/html', 'here is the proxy of \"'+ netloc + '\" by GTAP %s !' % (gtapVersion))
+            else:
+                newUrl = urlparse.urlunparse((scm, netloc, newpath, params, query, ''))
+                
+                data = urlfetch.fetch(newUrl, payload=origBody, method=method, headers=headers)
+                self.response.status = data.status_code
+                self.response.headers = data.headers
+                self.response.out.write(data.content)
 
 
     def post(self):
