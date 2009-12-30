@@ -41,7 +41,7 @@ class MainPage(webapp.RequestHandler):
                 netloc = 'twitter.com'
                 newpath = path
 
-            if newpath == '/':
+            if newpath == '/' or newpath == '':
                 self.myOutput('text/html', 'here is the proxy of \"'+ netloc + '\" by GTAP %s !' % (gtapVersion))
             else:
                 newUrl = urlparse.urlunparse((scm, netloc, newpath, params, query, ''))
