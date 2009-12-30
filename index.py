@@ -23,13 +23,12 @@ class MainPage(webapp.RequestHandler):
                 headers = {}
             else:
                 auth_header = self.request.headers['Authorization']
-                #auth_parts = auth_header.split(' ')
-                #user_pass_parts = base64.b64decode(auth_parts[1]).split(':')
-                #user_arg = user_pass_parts[0]
-                #pass_arg = user_pass_parts[1]
-                #base64string = base64.encodestring('%s:%s' % (user_arg, pass_arg))[:-1]
-                #headers = {'Authorization': "Basic %s" % base64string}
-                headers = {'Authorization': "Basic %s" % auth_header}
+                auth_parts = auth_header.split(' ')
+                user_pass_parts = base64.b64decode(auth_parts[1]).split(':')
+                user_arg = user_pass_parts[0]
+                pass_arg = user_pass_parts[1]
+                base64string = base64.encodestring('%s:%s' % (user_arg, pass_arg))[:-1]
+                headers = {'Authorization': "Basic %s" % base64string}
 
             path_parts = path.split('/')
             if path_parts[1] == 'search':
