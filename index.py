@@ -3,7 +3,23 @@ from google.appengine.ext import webapp
 from google.appengine.api import urlfetch
 from google.appengine.api import urlfetch_errors
 
-gtapVersion = '0.2.2'
+gtapVersion = '0.3'
+
+_hoppish = {
+    'connection':1,
+    'keep-alive':1,
+    'proxy-authenticate':1,
+    'proxy-authorization':1,
+    'te':1,
+    'trailers':1,
+    'transfer-encoding':1,
+    'upgrade':1,
+    'proxy-connection':1
+}
+
+def is_hop_by_hop(header):
+    #check if the given header is hop_by_hop
+    return _hoppish.has_key(header.lower())
 
 class MainPage(webapp.RequestHandler):
     def myOutput(self, contentType, content):
@@ -47,9 +63,13 @@ class MainPage(webapp.RequestHandler):
                 newUrl = urlparse.urlunparse((scm, netloc, newpath, params, query, ''))
                 
                 data = urlfetch.fetch(newUrl, payload=origBody, method=method, headers=headers)
-                self.response.status = data.status_code
-                self.response.headers = data.headers
+                self.response.set_status(data.status_code)
+                self.response.headers.add_header('GTAP-Version', gtapVersion)
+                for resName, resValue in data.headers.items():
+                    if is_hop_by_hop(resName) is False and resName!='status':
+                        self.response.headers.add_header(resName, resValue)
                 self.response.out.write(data.content)
+
 
 
     def post(self):
