@@ -1,9 +1,9 @@
-application: your_application_name
+application: gtapserver1
 version: 1
 runtime: python
 api_version: 1
 
 handlers:
 - url: /.*
-  script: index.py
+  script: main.py
   secure: always

@@ -1,25 +1,11 @@
+# -*- coding: utf-8 -*-
 import wsgiref.handlers, urlparse, base64
 from google.appengine.ext import webapp
 from google.appengine.api import urlfetch
 from google.appengine.api import urlfetch_errors
+from wsgiref.util import is_hop_by_hop
 
 gtapVersion = '0.3'
-
-_hoppish = {
-    'connection':1,
-    'keep-alive':1,
-    'proxy-authenticate':1,
-    'proxy-authorization':1,
-    'te':1,
-    'trailers':1,
-    'transfer-encoding':1,
-    'upgrade':1,
-    'proxy-connection':1
-}
-
-def is_hop_by_hop(header):
-    #check if the given header is hop_by_hop
-    return _hoppish.has_key(header.lower())
 
 class MainPage(webapp.RequestHandler):
     def myOutput(self, contentType, content):
@@ -60,9 +46,9 @@ class MainPage(webapp.RequestHandler):
             if newpath == '/' or newpath == '':
                 self.myOutput('text/html', 'here is the proxy of \"'+ netloc + '\" by GTAP %s !' % (gtapVersion))
             else:
-                newUrl = urlparse.urlunparse((scm, netloc, newpath, params, query, ''))
+                newUrl = urlparse.urlunparse(('https', netloc, newpath, params, query, ''))
                 
-                data = urlfetch.fetch(newUrl, payload=origBody, method=method, headers=headers)
+                data = urlfetch.fetch(newUrl, payload=origBody, method=method, headers=headers, allow_truncated=True)
                 self.response.set_status(data.status_code)
                 self.response.headers.add_header('GTAP-Version', gtapVersion)
                 for resName, resValue in data.headers.items():
