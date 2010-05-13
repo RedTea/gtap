@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
+# Copyright under  the latest Apache License 2.0
+
 import wsgiref.handlers, urlparse, base64, logging
 from google.appengine.ext import webapp
 from google.appengine.api import urlfetch
 from google.appengine.api import urlfetch_errors
 from wsgiref.util import is_hop_by_hop
+
+import oauth
 
 gtap_vrsion = '0.3.1'
 
@@ -52,7 +56,7 @@ class MainPage(webapp.RequestHandler):
             gtap_message = gtap_message.replace('#gtap_version#', gtap_vrsion)
             self.my_output( 'text/html', gtap_message )
         else:
-            new_url = urlparse.urlunparse(('https', new_netloc, new_path, params, query, ''))
+            new_url = urlparse.urlunparse(('https', new_netloc, new_path, params, query, '')).replace('//','/')
             logging.debug(new_url)
             data = urlfetch.fetch(new_url, payload=orig_body, method=method, headers=headers, allow_truncated=True)
             
