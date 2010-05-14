@@ -56,7 +56,7 @@ class MainPage(webapp.RequestHandler):
             gtap_message = gtap_message.replace('#gtap_version#', gtap_vrsion)
             self.my_output( 'text/html', gtap_message )
         else:
-            new_url = urlparse.urlunparse(('https', new_netloc, new_path, params, query, '')).replace('//','/')
+            new_url = urlparse.urlunparse(('https', new_netloc, new_path.replace('//','/'), params, query, ''))
             logging.debug(new_url)
             data = urlfetch.fetch(new_url, payload=orig_body, method=method, headers=headers, allow_truncated=True)
             
