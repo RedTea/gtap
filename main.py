@@ -9,7 +9,7 @@ from wsgiref.util import is_hop_by_hop
 
 import oauth
 
-gtap_vrsion = '0.3.1'
+gtap_vrsion = '0.3.2'
 
 gtap_message = "<html><head><title>GAE Twitter API Proxy</title><style>body { padding: 20px 40px; font-family: Verdana, Helvetica, Sans-Serif; font-size: medium; }</style></head><body><h2>GTAP v#gtap_version# is running!</h2></p>"
 #gtap_message = gtap_message + "<p><a href=''><img src='/static/sign-in-with-twitter.png' border='0'></a></p>"
