@@ -7,10 +7,9 @@ from google.appengine.api import urlfetch
 from google.appengine.api import urlfetch_errors
 from wsgiref.util import is_hop_by_hop
 
-gtap_vrsion = '0.3.2'
+gtap_vrsion = '0.3.3'
 
 gtap_message = "<html><head><title>GAE Twitter API Proxy</title><style>body { padding: 20px 40px; font-family: Verdana, Helvetica, Sans-Serif; font-size: medium; }</style></head><body><h2>GTAP v#gtap_version# is running!</h2></p>"
-#gtap_message = gtap_message + "<p><a href=''><img src='/static/sign-in-with-twitter.png' border='0'></a></p>"
 gtap_message = gtap_message + "<p>This is a simple solution on Google Appengine which can proxy the HTTP request to twitter's official REST API url.</p><p>Now You can:</p><p><strong>1</strong> use <i>https://#app_url#/</i> instead of <i>https://twitter.com/</i> <br /></p><p><strong>2</strong> use <i>https://#app_url#/api/</i> instead of <i>https://api.twitter.com/</i> <br /></p><p><strong>3</strong> use <i>https://#app_url#/</i> instead of <i>https://search.twitter.com/</i> <br /></p><p><font color='red'><b>Don't forget the \"/\" at the end of your api proxy address!!!.</b></font></p></body></html>"
 
 class MainPage(webapp.RequestHandler):
@@ -56,8 +55,9 @@ class MainPage(webapp.RequestHandler):
         else:
             new_url = urlparse.urlunparse(('https', new_netloc, new_path.replace('//','/'), params, query, ''))
             logging.debug(new_url)
+            logging.debug(orig_body)
             data = urlfetch.fetch(new_url, payload=orig_body, method=method, headers=headers, allow_truncated=True)
-            
+            logging.debug(data.headers)
             try :
                 self.response.set_status(data.status_code)
             except Exception:
