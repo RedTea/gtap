@@ -1,49 +1,6 @@
 # -*- coding: utf-8 -*-
 # Copyright under  the latest Apache License 2.0
 
-"""
-A simple OAuth implementation for authenticating users with third party
-websites.
-
-A typical use case inside an AppEngine controller would be:
-
-1) Create the OAuth client. In this case we'll use the Twitter client,
-  but you could write other clients to connect to different services.
-
-  import oauth
-
-  consumer_key = "LKlkj83kaio2fjiudjd9...etc"
-  consumer_secret = "58kdujslkfojkjsjsdk...etc"
-  callback_url = "http://www.myurl.com/callback/twitter"
-
-  client = oauth.TwitterClient(consumer_key, consumer_secret, callback_url)
-
-2) Send the user to Twitter in order to login:
-
-  self.redirect(client.get_authorization_url())
-
-3) Once the user has arrived back at your callback URL, you'll want to
-  get the authenticated user information.
-
-  auth_token = self.request.get("oauth_token")
-  auth_verifier = self.request.get("oauth_verifier")
-  user_info = client.get_user_info(auth_token, auth_verifier=auth_verifier)
-
-  The "user_info" variable should then contain a dictionary of various
-  user information (id, picture url, etc). What you do with that data is up
-  to you.
-
-  That's it!
-
-4) If you need to, you can also call other other API URLs using
-  client.make_request() as long as you supply a valid API URL and an access
-  token and secret. Note, you may need to set method=urlfetch.POST.
-
-@author: Mike Knapp
-@copyright: Unrestricted. Feel free to use modify however you see fit. Please
-note however this software is unsupported. Please don't email me about it. :)
-"""
-
 from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.ext import db
@@ -66,23 +23,6 @@ import logging
 class OAuthException(Exception):
     pass
 
-
-def get_oauth_client(service, key, secret, callback_url):
-    """Get OAuth Client.
-
-    A factory that will return the appropriate OAuth client.
-    """
-
-    if service == "twitter":
-        return TwitterClient(key, secret, callback_url)
-    elif service == "yahoo":
-        return YahooClient(key, secret, callback_url)
-    elif service == "myspace":
-        return MySpaceClient(key, secret, callback_url)
-    else:
-        raise Exception, "Unknown OAuth service %s" % service
-
-
 class AuthToken(db.Model):
     """Auth Token.
 
@@ -92,10 +32,9 @@ class AuthToken(db.Model):
 
     TODO: Implement a cron to clean out old tokens periodically.
     """
-
-    service = db.StringProperty(required=True)
+    username = db.StringProperty(required=True)
     token = db.StringProperty(required=True)
-    secret = db.StringProperty(required=True)
+    service = db.StringProperty(required=True)
     created = db.DateTimeProperty(auto_now_add=True)
 
 
@@ -172,27 +111,31 @@ class OAuthClient():
 
         A urlfetch response object is returned.
         """
+        
+        (scm, netloc, path, params, query, _) = urlparse.urlparse(url)
+        url = None
+        query_params = None
+        if query:
+            query_params = dict([(k,v) for k,v in parse_qsl(query)])
+            additional_params.update(query_params)
+        url = urlparse.urlunparse(('https', netloc, path, params, '', ''))
+        
         payload = self.prepare_request(url, token, secret, additional_params, method)
-        logging.debug('payload')
-        logging.debug(payload)
+
         if method == urlfetch.GET:
             url = "%s?%s" % (url, payload)
             payload = None
         headers = {"Authorization": "OAuth"} if protected else {}
-    
-        logging.debug('headers')
-        logging.debug(headers)
-        logging.debug('payload1')
-        logging.debug(payload)
-        logging.debug('url')
-        logging.debug(url)        
+
         rpc = urlfetch.create_rpc(deadline=10.0)
         urlfetch.make_fetch_call(rpc, url, method=method, headers=headers, payload=payload)
         return rpc
 
     def make_request(self, url, token="", secret="", additional_params=None,
                                       protected=False, method=urlfetch.GET):
-        return self.make_async_request(url, token, secret, additional_params, protected, method).get_result()
+        data = self.make_async_request(url, token, secret, additional_params, protected, method).get_result()
+        logging.debug(data.status_code)
+        return data
   
     def get_authorization_url(self):
         """Get Authorization URL.
@@ -217,49 +160,34 @@ class OAuthClient():
         result = self._extract_credentials(response)
         return result['token'], result['secret'],result['screen_name']
 
-
-    def get_user_info(self, auth_token, auth_verifier=""):
-        """Get User Info.
-
-        Exchanges the auth token for an access token and returns a dictionary
-        of information about the authenticated user.
-        """
-
-        auth_token = urlunquote(auth_token)
-        auth_verifier = urlunquote(auth_verifier)
-
-        auth_secret = memcache.get(self._get_memcache_auth_key(auth_token))
-
-        if not auth_secret:
-            result = AuthToken.gql("""
-                WHERE
-                    service = :1 AND
-                token = :2
-                    LIMIT
+    def get_access_token_from_db(self, username):
+        result = AuthToken.gql("""
+            WHERE
+                service = :1 AND
+                username = :2
+            LIMIT
                 1
-                """, self.service_name, auth_token).get()
+        """, self.service_name, username).get()
 
         if not result:
-            logging.error("The auth token %s was not found in our db" % auth_token)
-            raise Exception, "Could not find Auth Token in database"
+            logging.error("The %s's was not found in our db" % username)
+            raise Exception, "Could not find User's Access Token in database"
         else:
-            auth_secret = result.secret
+            access_token = result.token
+            return access_token
 
-        response = self.make_request(self.access_url,
-                                token=auth_token,
-                                secret=auth_secret,
-                                additional_params={"oauth_verifier":
-                                                    auth_verifier})
+    def save_user_info_into_db(self,username,token):
+        service = self.service_name
+        res = AuthToken.all().filter(
+                            'service =', service).filter('username =', username)
+        if res.count() > 0:
+            db.delete(res)
 
-        # Extract the access token/secret from the response.
-        result = self._extract_credentials(response)
-
-        # Try to collect some information about this user from the service.
-        user_info = self._lookup_user_info(result["token"], result["secret"])
-        user_info.update(result)
-
-        return user_info
-
+        auth = AuthToken(service=service,
+                         username=username,
+                         token=token)
+        auth.put()
+    
     def _get_auth_token(self):
         """Get Authorization Token.
 
@@ -267,24 +195,13 @@ class OAuthClient():
         token and secret are stored in our database, and the auth token is
         returned.
         """
-
         response = self.make_request(self.request_url)
         result = self._extract_credentials(response)
 
         auth_token = result["token"]
         auth_secret = result["secret"]
 
-        # Save the auth token and secret in our database.
-        #auth = AuthToken(service=self.service_name,
-        #                 token=auth_token,
-        #                 secret=auth_secret)
-        #auth.put()
-
         return auth_token
-
-    def _get_memcache_auth_key(self, auth_token):
-
-        return "oauth_%s_%s" % (self.service_name, auth_token)
 
     def _extract_credentials(self, result):
         """Extract Credentials.
@@ -308,6 +225,7 @@ class OAuthClient():
             screen_name = parsed_results["screen_name"][0]
 
         if not (token and secret) or result.status_code != 200:
+            logging.error("Response Status Code is : %s" % result.status_code)
             logging.error("Could not extract token/secret: %s" % result.content)
             raise OAuthException("Problem talking to the service")
 
@@ -317,31 +235,6 @@ class OAuthClient():
             "secret": secret,
             "screen_name": screen_name
         }
-
-    def _lookup_user_info(self, access_token, access_secret):
-        """Lookup User Info.
-
-        Complies a dictionary describing the user. The user should be
-        authenticated at this point. Each different client should override
-        this method.
-        """
-
-        raise NotImplementedError, "Must be implemented by a subclass"
-
-    def _get_default_user_info(self):
-        """Get Default User Info.
-
-        Returns a blank array that can be used to populate generalized user
-        information.
-        """
-
-        return {
-            "id": "",
-            "username": "",
-            "name": "",
-            "picture": ""
-        }
-
 
 class TwitterClient(OAuthClient):
     """Twitter Client.
@@ -367,22 +260,3 @@ class TwitterClient(OAuthClient):
         token = self._get_auth_token()
         return "https://api.twitter.com/oauth/authorize?oauth_token=%s" % token
 
-    def _lookup_user_info(self, access_token, access_secret):
-        """Lookup User Info.
-
-        Lookup the user on Twitter.
-        """
-
-        response = self.make_request(
-                "http://twitter.com/account/verify_credentials.json",
-                token=access_token, secret=access_secret, protected=True)
-
-        data = json.loads(response.content)
-
-        user_info = self._get_default_user_info()
-        user_info["id"] = data["id"]
-        user_info["username"] = data["screen_name"]
-        user_info["name"] = data["name"]
-        user_info["picture"] = data["profile_image_url"]
-
-        return user_info

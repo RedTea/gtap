@@ -8,9 +8,12 @@ from google.appengine.api import urlfetch
 from google.appengine.api import urlfetch_errors
 from wsgiref.util import is_hop_by_hop
 
-import oauth_util
+import oauth
 
 gtap_vrsion = '0.4'
+
+CONSUMER_KEY = 'xzR7LOq6Aeq8uAaGORJHGQ'
+CONSUMER_SECRET = 'bCgaGEfejtE9mzq5pTMZngjnjd6rRL7hf2WBFjT4'
 
 gtap_message = """
     <html>
@@ -30,32 +33,20 @@ gtap_message = """
     </body></html>
     """
 
-CONSUMER_KEY = 'xzR7LOq6Aeq8uAaGORJHGQ'
-CONSUMER_SECRET = 'bCgaGEfejtE9mzq5pTMZngjnjd6rRL7hf2WBFjT4'
+def my_output(handler, content_type, content):
+    handler.response.status = '200 OK'
+    handler.response.headers.add_header('GTAP-Version', gtap_vrsion)
+    handler.response.headers.add_header('Content-Type', content_type)
+    handler.response.out.write(content)
 
 class MainPage(webapp.RequestHandler):
-    def my_output(self, content_type, content):
-        self.response.status = '200 OK'
-        self.response.headers.add_header('GTAP-Version', gtap_vrsion)
-        self.response.headers.add_header('Content-Type', content_type)
-        self.response.out.write(content)
+
 
     def do_proxy(self, method):
         orig_url = self.request.url
         orig_body = self.request.body
         (scm, netloc, path, params, query, _) = urlparse.urlparse(orig_url)
         
-        if 'Authorization' not in self.request.headers :
-            headers = {}
-        else:
-            auth_header = self.request.headers['Authorization']
-            auth_parts = auth_header.split(' ')
-            user_pass_parts = base64.b64decode(auth_parts[1]).split(':')
-            username = user_pass_parts[0]
-            password = user_pass_parts[1]
-            base64string = base64.encodestring('%s:%s' % (username, password))[:-1]
-            headers = {'Authorization': "Basic %s" % base64string}
-
         path_parts = path.split('/')
         
         if path_parts[1] == 'api' or path_parts[1] == 'search':
@@ -68,59 +59,55 @@ class MainPage(webapp.RequestHandler):
             new_path = path
             new_netloc = 'twitter.com'
 
-        logging.debug(new_path)
-
         if new_path == '/' or new_path == '':
             global gtap_message
             gtap_message = gtap_message.replace('#app_url#', netloc)
             gtap_message = gtap_message.replace('#gtap_version#', gtap_vrsion)
-            self.my_output( 'text/html', gtap_message )
+            my_output(self, 'text/html', gtap_message )
         else:
-            new_url = urlparse.urlunparse(('https', new_netloc, new_path.replace('//','/'), params, '', ''))
-            query_params = {}
-            if query:
-                query_params = dict([(k,v) for k,v in parse_qsl(query)])
+            if 'Authorization' not in self.request.headers :
+                headers = {}
+            else:
+                auth_header = self.request.headers['Authorization']
+                auth_parts = auth_header.split(' ')
+                user_pass_parts = base64.b64decode(auth_parts[1]).split(':')
+                username = user_pass_parts[0]
+                password = user_pass_parts[1] # as access secret key
+
+            new_url = urlparse.urlunparse(('https', new_netloc, new_path.replace('//','/'), params, query, ''))
             additional_params = dict([(k,v) for k,v in parse_qsl(orig_body)])
-            query_params.update(additional_params)
             
             logging.debug(new_url)
-            logging.debug(query_params)
             
             #new_url = 'http://api.twitter.com/1/friends/ids.xml'
             
-            USER_TOKEN  = ''
-            USER_SECRET = ''
-            
             callback_url = "%s/oauth/verify" % self.request.host_url
-            client = oauth_util.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
-            
-            #logging.debug(username)
-            #logging.debug(password)
-            
-            use_method = urlfetch.GET if method=='GET' else urlfetch.POST
-            
-            #try :
-            logging.debug(method)
-            logging.debug(orig_body)
-            
-            data = client.make_request(url=new_url, token=USER_TOKEN, secret=USER_SECRET, 
-                                       method=use_method, protected=True, 
-                                       additional_params = query_params)
+            client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
 
-            
-            logging.debug(data.headers)
-            logging.debug(data.content)
-            #except Exception:
-            #    self.response.set_status(503)
-            #    self.response.out.write("Gtap Server Error:<br />")
-            #    return self.response.out.write(format(errno, strerror))
-
-            
-            self.response.headers.add_header('GTAP-Version', gtap_vrsion)
-            for res_name, res_value in data.headers.items():
-                if is_hop_by_hop(res_name) is False and res_name!='status':
-                    self.response.headers.add_header(res_name, res_value)
-            self.response.out.write(data.content)
+            try:
+                user_access_token  = client.get_access_token_from_db(username)
+            except Exception:
+                self.response.set_status(503)
+                self.response.out.write("Gtap Server Error:<br />")
+                return self.response.out.write(format(errno, strerror))
+            else:
+                user_access_secret = password
+                use_method = urlfetch.GET if method=='GET' else urlfetch.POST
+                
+                try :
+                    data = client.make_request(url=new_url, token=user_access_token, secret=user_access_secret, 
+                                           method=use_method, protected=True, 
+                                           additional_params = additional_params)
+                except Exception:
+                    self.response.set_status(503)
+                    self.response.out.write("Gtap Server Error:<br />")
+                    return self.response.out.write(format(errno, strerror))
+                else :
+                    self.response.headers.add_header('GTAP-Version', gtap_vrsion)
+                    for res_name, res_value in data.headers.items():
+                        if is_hop_by_hop(res_name) is False and res_name!='status':
+                            self.response.headers.add_header(res_name, res_value)
+                    self.response.out.write(data.content)
 
     def post(self):
         self.do_proxy('POST')
@@ -132,15 +119,15 @@ class MainPage(webapp.RequestHandler):
 class OauthPage(webapp.RequestHandler):
     def get(self, mode=""):
         callback_url = "%s/oauth/verify" % self.request.host_url
-        client = oauth_util.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
+        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
         
         if mode=='session':
             # step C Consumer Direct User to Service Provider
-            try:
+            #try:
                 url = client.get_authorization_url()
                 self.redirect(url)
-            except Exception,error_message:
-                self.response.out.write( error_message )
+            #except Exception,error_message:
+            #    self.response.out.write( error_message )
 
 
         if mode=='verify':
@@ -153,16 +140,11 @@ class OauthPage(webapp.RequestHandler):
             # step F Service Provider Grants Access Token
             try:
                 access_token, access_secret, screen_name = client.get_access_token(auth_token, auth_verifier)
-                self.response.out.write( access_token )
-                self.response.out.write( "<br />" )
-                self.response.out.write( access_secret )
-                self.response.out.write( "<br />" )
-                self.response.out.write( screen_name )
+            
+                # Save the auth token and secret in our database.
+                client.save_user_info_into_db(username=screen_name,token=access_token)
                 
-                user_info = client._lookup_user_info(access_token, access_secret)
-                logging.debug(user_info)
-                
-                
+                self.response.out.write( 'Your access secret key is : %s' % access_secret )
             except Exception,error_message:
                 self.response.out.write( error_message )
 
