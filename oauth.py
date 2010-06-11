@@ -23,15 +23,8 @@ import logging
 class OAuthException(Exception):
     pass
 
-class AuthToken(db.Model):
-    """Auth Token.
+class AuthTokenModel(db.Model):
 
-    A temporary auth token that we will use to authenticate a user with a
-    third party website. (We need to store the data while the user visits
-    the third party website to authenticate themselves.)
-
-    TODO: Implement a cron to clean out old tokens periodically.
-    """
     username = db.StringProperty(required=True)
     token = db.StringProperty(required=True)
     service = db.StringProperty(required=True)
@@ -161,7 +154,7 @@ class OAuthClient():
         return result['token'], result['secret'],result['screen_name']
 
     def get_access_token_from_db(self, username):
-        result = AuthToken.gql("""
+        result = AuthTokenModel.gql("""
             WHERE
                 service = :1 AND
                 username = :2
@@ -170,20 +163,19 @@ class OAuthClient():
         """, self.service_name, username).get()
 
         if not result:
-            logging.error("The %s's was not found in our db" % username)
-            raise Exception, "Could not find User's Access Token in database"
+            access_token = None
         else:
             access_token = result.token
-            return access_token
+        return access_token
 
     def save_user_info_into_db(self,username,token):
         service = self.service_name
-        res = AuthToken.all().filter(
+        res = AuthTokenModel.all().filter(
                             'service =', service).filter('username =', username)
         if res.count() > 0:
             db.delete(res)
 
-        auth = AuthToken(service=service,
+        auth = AuthTokenModel(service=service,
                          username=username,
                          token=token)
         auth.put()
@@ -235,13 +227,8 @@ class OAuthClient():
             "secret": secret,
             "screen_name": screen_name
         }
-
+    
 class TwitterClient(OAuthClient):
-    """Twitter Client.
-
-    A client for talking to the Twitter API using OAuth as the
-    authentication model.
-    """
 
     def __init__(self, consumer_key, consumer_secret, callback_url):
         """Constructor."""
@@ -250,8 +237,8 @@ class TwitterClient(OAuthClient):
                 "twitter",
                 consumer_key,
                 consumer_secret,
-                "http://twitter.com/oauth/request_token",
-                "http://twitter.com/oauth/access_token",
+                "https://api.twitter.com/oauth/request_token",
+                "https://api.twitter.com/oauth/access_token",
                 callback_url)
 
     def get_authorization_url(self):
