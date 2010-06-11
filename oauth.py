@@ -1,23 +1,16 @@
 # -*- coding: utf-8 -*-
 # Copyright under  the latest Apache License 2.0
 
-from google.appengine.api import memcache
 from google.appengine.api import urlfetch
 from google.appengine.ext import db
 
-from cgi import parse_qs
-from cgi import parse_qsl
-from django.utils import simplejson as json
+from cgi import parse_qs,parse_qsl
 from hashlib import sha1
 from hmac import new as hmac
 from random import getrandbits
 from time import time
-from urllib import urlencode
-from urllib import quote as urlquote
-from urllib import unquote as urlunquote
-import urlparse
-
-import logging
+from urllib import urlencode,quote as urlquote,unquote as urlunquote
+import urlparse, logging
 
 
 class OAuthException(Exception):

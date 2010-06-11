@@ -4,8 +4,7 @@
 import wsgiref.handlers, urlparse, base64, logging
 from cgi import parse_qsl
 from google.appengine.ext import webapp
-from google.appengine.api import urlfetch
-from google.appengine.api import urlfetch_errors
+from google.appengine.api import urlfetch, urlfetch_errors
 from wsgiref.util import is_hop_by_hop
 
 import oauth
