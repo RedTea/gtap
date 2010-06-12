@@ -61,7 +61,6 @@ class MainPage(webapp.RequestHandler):
             new_netloc = 'twitter.com'
     
         new_url = urlparse.urlunparse(('https', new_netloc, new_path.replace('//','/'), params, query, ''))
-        logging.debug(new_url)
         return new_url, new_path
 
     def parse_auth_header(self, headers):
@@ -112,7 +111,7 @@ class MainPage(webapp.RequestHandler):
                                    method=use_method, protected=protected, 
                                    additional_params = additional_params)
         except Exception,error_message:
-            logging.debug('make_request')
+            logging.debug( error_message )
             error_output(self, content=error_message)
         else :
             self.response.headers.add_header('GTAP-Version', gtap_version)
@@ -154,7 +153,7 @@ class OauthPage(webapp.RequestHandler):
                 access_token, access_secret, screen_name = client.get_access_token(auth_token, auth_verifier)
             
                 # Save the auth token and secret in our database.
-                client.save_user_info_into_db(username=screen_name,token=access_token)
+                client.save_user_info_into_db(username=screen_name,token=access_token, secret=access_secret)
                 
                 self.response.out.write( 'Your access secret key is : %s' % access_secret )
             except Exception,error_message:

@@ -20,6 +20,7 @@ class AuthTokenModel(db.Model):
 
     username = db.StringProperty(required=True)
     token = db.StringProperty(required=True)
+    secret = db.StringProperty(required=True)
     service = db.StringProperty(required=True)
     created = db.DateTimeProperty(auto_now_add=True)
 
@@ -68,7 +69,9 @@ class OAuthClient():
         for k,v in params.items():
             if isinstance(v, unicode):
                 params[k] = v.encode('utf8')
-
+            if type(v) is str:
+                params[k] = params[k].replace("~","~~~")
+            
         # Join all of the params together.
         params_str = "&".join(["%s=%s" % (encode(k), encode(params[k]))
                                for k in sorted(params)])
@@ -79,12 +82,13 @@ class OAuthClient():
 
         # Create a HMAC-SHA1 signature of the message.
         key = "%s&%s" % (self.consumer_secret, secret) # Note compulsory "&".
+        message = message.replace('%257E%257E%257E', '~')
         signature = hmac(key, message, sha1)
         digest_base64 = signature.digest().encode("base64").strip()
         params["oauth_signature"] = digest_base64
 
         # Construct the request payload and return it
-        return urlencode(params)
+        return urlencode(params).replace('%7E%7E%7E', '~')
     
     
     def make_async_request(self, url, token="", secret="", additional_params=None,
@@ -120,7 +124,14 @@ class OAuthClient():
     def make_request(self, url, token="", secret="", additional_params=None,
                                       protected=False, method=urlfetch.GET):
         data = self.make_async_request(url, token, secret, additional_params, protected, method).get_result()
-        logging.debug(data.status_code)
+        
+        if data.status_code != 200:
+            logging.debug(data.status_code)
+            logging.debug(url)
+            logging.debug(token)
+            logging.debug(secret)
+            logging.debug(additional_params)
+            logging.debug(data.content)
         return data
   
     def get_authorization_url(self):
@@ -161,7 +172,7 @@ class OAuthClient():
             access_token = result.token
         return access_token
 
-    def save_user_info_into_db(self,username,token):
+    def save_user_info_into_db(self,username,token,secret):
         service = self.service_name
         res = AuthTokenModel.all().filter(
                             'service =', service).filter('username =', username)
@@ -170,6 +181,7 @@ class OAuthClient():
 
         auth = AuthTokenModel(service=service,
                          username=username,
+                         secret=secret,
                          token=token)
         auth.put()
     
