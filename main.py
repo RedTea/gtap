@@ -6,13 +6,14 @@ from cgi import parse_qsl
 from google.appengine.ext import webapp
 from google.appengine.api import urlfetch, urlfetch_errors
 from wsgiref.util import is_hop_by_hop
-
 import oauth
 
 gtap_version = '0.4'
 
-CONSUMER_KEY = 'xzR7LOq6Aeq8uAaGORJHGQ'
-CONSUMER_SECRET = 'bCgaGEfejtE9mzq5pTMZngjnjd6rRL7hf2WBFjT4'
+CONSUMER_KEY = 'PSX4yI7EWOArpSArNfAYIg'
+CONSUMER_SECRET = 'EfVVIFYPb7YfhIQtNA9LzwLQdoJA6a5TSqywVbXTiw'
+
+ENFORCE_GZIP = True
 
 gtap_message = """
     <html>
@@ -41,7 +42,12 @@ def error_output(handler, content, content_type='text/html', status=503):
     handler.response.out.write("Gtap Server Error:<br />")
     return handler.response.out.write(content)
 
-
+def compress_buf(buf):
+    zbuf = StringIO.StringIO()
+    zfile = gzip.GzipFile(None, 'wb', 9, zbuf)
+    zfile.write(buf)
+    zfile.close()
+    return zbuf.getvalue() 
 
 class MainPage(webapp.RequestHandler):
 
@@ -114,6 +120,7 @@ class MainPage(webapp.RequestHandler):
             logging.debug( error_message )
             error_output(self, content=error_message)
         else :
+            logging.debug(data.headers)
             self.response.headers.add_header('GTAP-Version', gtap_version)
             for res_name, res_value in data.headers.items():
                 if is_hop_by_hop(res_name) is False and res_name!='status':
