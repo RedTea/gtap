@@ -177,10 +177,7 @@ class OauthPage(webapp.RequestHandler):
             self.response.out.write( out_message )
             #except Exception,error_message:
             #    self.response.out.write( error_message )
-
-        if mode=='test':
-            self_key = 'id-%s' % uuid4()
-            self.response.out.write(self_key)
+            
 
 def main():
     application = webapp.WSGIApplication( [
