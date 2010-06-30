@@ -5,12 +5,29 @@ from google.appengine.api import urlfetch
 from google.appengine.ext import db
 
 from cgi import parse_qs,parse_qsl
-from hashlib import sha1
+from hashlib import sha1, sha256, sha512
 from hmac import new as hmac
 from random import getrandbits
 from time import time
 from urllib import urlencode,quote as urlquote,unquote as urlunquote
-import urlparse, logging
+import urlparse, logging, base64
+from Crypto.Cipher import AES
+
+# the block size for the cipher object; must be 16, 24, or 32 for AES
+BLOCK_SIZE = 32
+
+# the character used for padding--with a block cipher such as AES, the value
+# you encrypt must be a multiple of BLOCK_SIZE in length.  This character is
+# used to ensure that your value is always a multiple of BLOCK_SIZE
+PADDING = '{'
+
+# one-liner to sufficiently pad the text to be encrypted
+pad = lambda s: s + (BLOCK_SIZE - len(s) % BLOCK_SIZE) * PADDING
+
+# one-liners to encrypt/encode and decrypt/decode a string
+# encrypt with AES, encode with base64
+EncodeAES = lambda c, s: base64.b64encode(c.encrypt(pad(s)))
+DecodeAES = lambda c, e: c.decrypt(base64.b64decode(e)).rstrip(PADDING)
 
 
 class OAuthException(Exception):
@@ -19,10 +36,24 @@ class OAuthException(Exception):
 class AuthTokenModel(db.Model):
 
     username = db.StringProperty(required=True)
-    token = db.StringProperty(required=True)
-    secret = db.StringProperty(required=True)
-    service = db.StringProperty(required=True)
-    created = db.DateTimeProperty(auto_now_add=True)
+    token    = db.StringProperty(required=True)
+    secret   = db.StringProperty(required=True)
+    service  = db.StringProperty(required=True)
+    created  = db.DateTimeProperty(auto_now_add=True)
+
+    def create_aes(self, self_key):
+        data = hmac(
+            self.username, self_key, sha512
+            ).digest()
+        return AES.new(data[:32], AES.MODE_CBC,data[32:32])
+ 
+    def encrypt(self, self_key):
+        self.token  = EncodeAES(self.create_aes(self_key) , self.token)
+        self.secret = EncodeAES(self.create_aes(self_key), self.secret)
+    
+    def decrypt(self, self_key):
+        self.token  = DecodeAES(self.create_aes(self_key), self.token)
+        self.secret = DecodeAES(self.create_aes(self_key), self.secret)
 
 
 class OAuthClient():
@@ -157,7 +188,7 @@ class OAuthClient():
         result = self._extract_credentials(response)
         return result['token'], result['secret'],result['screen_name']
 
-    def get_access_token_from_db(self, username):
+    def get_access_from_db(self, username, password):
         result = AuthTokenModel.gql("""
             WHERE
                 service = :1 AND
@@ -168,11 +199,14 @@ class OAuthClient():
 
         if not result:
             access_token = None
+            access_secret = None
         else:
+            result.decrypt(password);
             access_token = result.token
-        return access_token
+            access_secret = result.secret
+        return access_token, access_secret
 
-    def save_user_info_into_db(self,username,token,secret):
+    def save_user_info_into_db(self, password, username,token,secret):
         service = self.service_name
         res = AuthTokenModel.all().filter(
                             'service =', service).filter('username =', username)
@@ -183,6 +217,7 @@ class OAuthClient():
                          username=username,
                          secret=secret,
                          token=token)
+        auth.encrypt(password)
         auth.put()
     
     def _get_auth_token(self):

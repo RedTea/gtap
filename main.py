@@ -6,6 +6,7 @@ from cgi import parse_qsl
 from google.appengine.ext import webapp
 from google.appengine.api import urlfetch, urlfetch_errors
 from wsgiref.util import is_hop_by_hop
+from uuid import uuid4
 import oauth
 
 gtap_version = '0.4'
@@ -24,7 +25,7 @@ gtap_message = """
         </head>
         <body><h2>GTAP v#gtap_version# is running!</h2></p>
         <p><a href='/oauth/session'><img src='/static/sign-in-with-twitter.png' border='0'></a> <== Need Fuck GFW First!!</p>
-        <p>This is a simple solution on Google Appengine which can proxy the HTTP request to twitter's official REST API url.</p>
+        <p>This is a simple solution on Google App Engine which can proxy the HTTP request to twitter's official REST API url.</p>
         <p><font color='red'><b>Don't forget the \"/\" at the end of your api proxy address!!!.</b></font></p>
     </body></html>
     """
@@ -97,19 +98,18 @@ class MainPage(webapp.RequestHandler):
         user_access_token = None
         
         callback_url = "%s/oauth/verify" % self.request.host_url
-        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)        
+        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
 
         if username is None :
             protected=False
         else:
             protected=True
-            user_access_token  = client.get_access_token_from_db(username)
+            user_access_token, user_access_secret  = client.get_access_from_db(username, password)
             if user_access_token is None :
                 return error_output(self, 'Can not find this user from db')
         
         additional_params = dict([(k,v) for k,v in parse_qsl(orig_body)])
 
-        user_access_secret = password
         use_method = urlfetch.GET if method=='GET' else urlfetch.POST
 
         try :
@@ -156,16 +156,31 @@ class OauthPage(webapp.RequestHandler):
             logging.debug("oauth_verifier:" + auth_verifier)
             # step E Consumer Request Access Token 
             # step F Service Provider Grants Access Token
-            try:
-                access_token, access_secret, screen_name = client.get_access_token(auth_token, auth_verifier)
+            #try:
+            access_token, access_secret, screen_name = client.get_access_token(auth_token, auth_verifier)
             
-                # Save the auth token and secret in our database.
-                client.save_user_info_into_db(username=screen_name,token=access_token, secret=access_secret)
-                
-                self.response.out.write( 'Your access secret key is : %s' % access_secret )
-            except Exception,error_message:
-                self.response.out.write( error_message )
+            self_key = '%s' % uuid4()
+            
+            # Save the auth token and secret in our database.
+            client.save_user_info_into_db(username=screen_name, password=self_key, 
+                                          token=access_token, secret=access_secret)
+            
+            out_message = """
+                <html><head></head><body>
+                <p>Your key: %s</p>
+                <p>&nbsp;</p>
+                <p>And you can change this key <a href="%s/oauth/change">here</a></p>
+                </body>
+                </html>
+                """ % (self_key, self.request.host_url)
 
+            self.response.out.write( out_message )
+            #except Exception,error_message:
+            #    self.response.out.write( error_message )
+
+        if mode=='test':
+            self_key = 'id-%s' % uuid4()
+            self.response.out.write(self_key)
 
 def main():
     application = webapp.WSGIApplication( [
