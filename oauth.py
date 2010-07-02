@@ -49,7 +49,7 @@ class AuthTokenModel(db.Model):
  
     def encrypt(self, self_key):
         self.token  = EncodeAES(self.create_aes(self_key) , self.token)
-        self.secret = EncodeAES(self.create_aes(self_key), self.secret)
+        self.secret = EncodeAES(self.create_aes(self_key),  self.secret)
     
     def decrypt(self, self_key):
         self.token  = DecodeAES(self.create_aes(self_key), self.token)
@@ -201,17 +201,24 @@ class OAuthClient():
             access_token = None
             access_secret = None
         else:
-            result.decrypt(password);
-            access_token = result.token
-            access_secret = result.secret
+            result.decrypt(password)
+            if result.token[:3]=='###' and result.secret[:3]=='###':
+                access_token = result.token[3:]
+                access_secret = result.secret[3:]
+            else:
+                access_token = None
+                access_secret = None
         return access_token, access_secret
 
-    def save_user_info_into_db(self, password, username,token,secret):
+    def save_user_info_into_db(self, username, password, token, secret):
         service = self.service_name
         res = AuthTokenModel.all().filter(
                             'service =', service).filter('username =', username)
         if res.count() > 0:
             db.delete(res)
+
+        token  = '###' + token
+        secret = '###' + secret
 
         auth = AuthTokenModel(service=service,
                          username=username,

@@ -11,8 +11,8 @@ import oauth
 
 gtap_version = '0.4'
 
-CONSUMER_KEY = 'PSX4yI7EWOArpSArNfAYIg'
-CONSUMER_SECRET = 'EfVVIFYPb7YfhIQtNA9LzwLQdoJA6a5TSqywVbXTiw'
+CONSUMER_KEY = 'xzR7LOq6Aeq8uAaGORJHGQ'
+CONSUMER_SECRET = 'bCgaGEfejtE9mzq5pTMZngjnjd6rRL7hf2WBFjT4'
 
 ENFORCE_GZIP = True
 
@@ -120,7 +120,7 @@ class MainPage(webapp.RequestHandler):
             logging.debug( error_message )
             error_output(self, content=error_message)
         else :
-            logging.debug(data.headers)
+            #logging.debug(data.headers)
             self.response.headers.add_header('GTAP-Version', gtap_version)
             for res_name, res_value in data.headers.items():
                 if is_hop_by_hop(res_name) is False and res_name!='status':
@@ -135,10 +135,11 @@ class MainPage(webapp.RequestHandler):
 
 
 class OauthPage(webapp.RequestHandler):
+
     def get(self, mode=""):
         callback_url = "%s/oauth/verify" % self.request.host_url
-        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
-        
+        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)         
+
         if mode=='session':
             # step C Consumer Direct User to Service Provider
             try:
@@ -152,32 +153,76 @@ class OauthPage(webapp.RequestHandler):
             # step D Service Provider Directs User to Consumer
             auth_token = self.request.get("oauth_token")
             auth_verifier = self.request.get("oauth_verifier")
-            logging.debug("oauth_token:" + auth_token)
-            logging.debug("oauth_verifier:" + auth_verifier)
+
             # step E Consumer Request Access Token 
             # step F Service Provider Grants Access Token
-            #try:
-            access_token, access_secret, screen_name = client.get_access_token(auth_token, auth_verifier)
-            
-            self_key = '%s' % uuid4()
-            
-            # Save the auth token and secret in our database.
-            client.save_user_info_into_db(username=screen_name, password=self_key, 
-                                          token=access_token, secret=access_secret)
-            
+            try:
+                access_token, access_secret, screen_name = client.get_access_token(auth_token, auth_verifier)
+                self_key = '%s' % uuid4()
+                # Save the auth token and secret in our database.
+                client.save_user_info_into_db(username=screen_name, password=self_key, 
+                                              token=access_token, secret=access_secret)
+                show_key_url = '%s/oauth/showkey?name=%s&key=%s' % (
+                                                                       self.request.host_url, 
+                                                                       screen_name, self_key)
+                self.redirect(show_key_url)
+            except Exception,error_message:
+                logging.debug("oauth_token:" + auth_token)
+                logging.debug("oauth_verifier:" + auth_verifier)
+                logging.debug( error_message )
+                self.response.out.write( error_message )
+        
+        if mode=='showkey' or mode=='change':
+            screen_name = self.request.get("name")
+            self_key = self.request.get("key")
             out_message = """
-                <html><head></head><body>
-                <p>Your key: %s</p>
-                <p>&nbsp;</p>
-                <p>And you can change this key <a href="%s/oauth/change">here</a></p>
-                </body>
-                </html>
-                """ % (self_key, self.request.host_url)
-
+                <html><head><title>GTAP</title>
+                <style>body { padding: 20px 40px; font-family: Courier New; font-size: medium; }</style>
+                </head><body><p><form method="post" action="%s/oauth/changekey">
+                screen name : <input type="text" name="name" size="20" value="%s"> <br /><br />
+                current key : <input type="text" name="old_key" size="50" value="%s"> <br /><br />
+                the new key : <input type="text" name="new_key" size="50" value=""> <br /><br />
+                <input type="submit" name="_submit" value="Change the Key">
+                </form></p></body></html>
+                """ % (self.request.host_url, screen_name, self_key)
             self.response.out.write( out_message )
-            #except Exception,error_message:
-            #    self.response.out.write( error_message )
+        
+        if mode=='test':
+            screen_name = self.request.get("name")
+            self_key = self.request.get("key")
+            user_access_token, user_access_secret  = client.get_access_from_db(screen_name, self_key)
+            self.response.out.write( '%s<---->%s' % (user_access_token, user_access_secret) )
             
+    def post(self, mode=''):
+        
+        callback_url = "%s/oauth/verify" % self.request.host_url
+        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
+        
+        if mode=='changekey':
+            screen_name = self.request.get("name")
+            old_key = self.request.get("old_key")
+            new_key = self.request.get("new_key")
+            user_access_token, user_access_secret  = client.get_access_from_db(screen_name, old_key)
+            
+            if user_access_token is None or user_access_secret is None:
+                logging.debug("screen_name:" + screen_name)
+                logging.debug("old_key:" + old_key)
+                logging.debug("new_key:" + new_key)
+                self.response.out.write( 'Can not find user from db, or invalid old_key.' )
+            else:
+                try:
+                    client.save_user_info_into_db(username=screen_name, password=new_key, 
+                                                  token=user_access_token, secret=user_access_secret)
+                    show_key_url = '%s/oauth/showkey?name=%s&key=%s' % (
+                                                                        self.request.host_url, 
+                                                                        screen_name, new_key)
+                    self.redirect(show_key_url)
+                except Exception,error_message:
+                    logging.debug("screen_name:" + screen_name)
+                    logging.debug("old_key:" + old_key)
+                    logging.debug("new_key:" + new_key)
+                    logging.debug( error_message )
+                    self.response.out.write( error_message )
 
 def main():
     application = webapp.WSGIApplication( [
