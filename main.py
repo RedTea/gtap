@@ -24,7 +24,8 @@ gtap_message = """
         <style>body { padding: 20px 40px; font-family: Verdana, Helvetica, Sans-Serif; font-size: medium; }</style>
         </head>
         <body><h2>GTAP v#gtap_version# is running!</h2></p>
-        <p><a href='/oauth/session'><img src='/static/sign-in-with-twitter.png' border='0'></a> <== Need Fuck GFW First!!</p>
+        <p><a href='/oauth/session'><img src='/static/sign-in-with-twitter.png' border='0'></a> <== Need Fuck GFW First!! 
+        or <a href='/oauth/change'>change your key here</a></p>
         <p>This is a simple solution on Google App Engine which can proxy the HTTP request to twitter's official REST API url.</p>
         <p><font color='red'><b>Don't forget the \"/\" at the end of your api proxy address!!!.</b></font></p>
     </body></html>

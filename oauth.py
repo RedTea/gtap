@@ -197,7 +197,7 @@ class OAuthClient():
                 username = :2
             LIMIT
                 1
-        """, self.service_name, username).get()
+        """, self.service_name, username.lower()).get()
 
         if not result:
             access_token = None
@@ -223,7 +223,7 @@ class OAuthClient():
         secret = '###' + secret
 
         auth = AuthTokenModel(service=service,
-                         username=username,
+                         username=username.lower(),
                          secret=secret,
                          token=token)
         auth.encrypt(password)
