@@ -52,7 +52,9 @@ class AuthTokenModel(db.Model):
         self.secret = EncodeAES(self.create_aes(self_key),  self.secret)
     
     def decrypt(self, self_key):
+        logging.debug('xx_token:%s' % self.token)
         self.token  = DecodeAES(self.create_aes(self_key), self.token)
+        logging.debug('yy_token:%s' % self.token)
         self.secret = DecodeAES(self.create_aes(self_key), self.secret)
 
 

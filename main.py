@@ -48,7 +48,7 @@ def compress_buf(buf):
     zfile = gzip.GzipFile(None, 'wb', 9, zbuf)
     zfile.write(buf)
     zfile.close()
-    return zbuf.getvalue() 
+    return zbuf.getvalue()
 
 class MainPage(webapp.RequestHandler):
 
@@ -102,6 +102,7 @@ class MainPage(webapp.RequestHandler):
 
         if username is None :
             protected=False
+            user_access_token, user_access_secret = '', ''
         else:
             protected=True
             user_access_token, user_access_secret  = client.get_access_from_db(username, password)
@@ -138,7 +139,7 @@ class OauthPage(webapp.RequestHandler):
 
     def get(self, mode=""):
         callback_url = "%s/oauth/verify" % self.request.host_url
-        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)         
+        client = oauth.TwitterClient(CONSUMER_KEY, CONSUMER_SECRET, callback_url)
 
         if mode=='session':
             # step C Consumer Direct User to Service Provider
