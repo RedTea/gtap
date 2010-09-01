@@ -174,26 +174,42 @@ class OauthPage(webapp.RequestHandler):
                 logging.debug( error_message )
                 self.response.out.write( error_message )
         
-        if mode=='showkey' or mode=='change':
+        if mode=='showkey':
+            screen_name = self.request.get("name")
+            self_key = self.request.get("key")
+            out_message = """
+                <html><head><title>GTAP</title>
+                <style>body { padding: 20px 40px; font-family: Courier New; font-size: medium; }</style>
+                </head><body><p>
+                your twitter's screen name : <b>#screen_name#</b> <br /><br />
+                the Key of this API : <b>#self_key#</b> <a href="#api_host#/oauth/change?name=#screen_name#&key=#self_key#">you can change it now</a><br /><br />
+                </p>
+                <p>
+                In the third-party client of Twitter which support Custom API address,<br />
+                set the API address as <b>#api_host#/</b> or <b>#api_host#/api/1/</b> , <br />
+                and set Search API address as <b>#api_host#/search/</b> . <br />
+                Then you must use the <b>Key</b> as your password when Sign-In in these clients.
+                </p></body></html>
+                """
+            out_message = out_message.replace('#api_host#', self.request.host_url)
+            out_message = out_message.replace('#screen_name#', screen_name)
+            out_message = out_message.replace('#self_key#', self_key)
+            self.response.out.write( out_message )
+        
+        if mode=='change':
             screen_name = self.request.get("name")
             self_key = self.request.get("key")
             out_message = """
                 <html><head><title>GTAP</title>
                 <style>body { padding: 20px 40px; font-family: Courier New; font-size: medium; }</style>
                 </head><body><p><form method="post" action="%s/oauth/changekey">
-                screen name : <input type="text" name="name" size="20" value="%s"> <br /><br />
-                current key : <input type="text" name="old_key" size="50" value="%s"> <br /><br />
-                the new key : <input type="text" name="new_key" size="50" value=""> <br /><br />
+                your screen name of Twitter : <input type="text" name="name" size="20" value="%s"> <br /><br />
+                your old key of this API : <input type="text" name="old_key" size="50" value="%s"> <br /><br />
+                define your new key of this API : <input type="text" name="new_key" size="50" value=""> <br /><br />
                 <input type="submit" name="_submit" value="Change the Key">
                 </form></p></body></html>
                 """ % (self.request.host_url, screen_name, self_key)
             self.response.out.write( out_message )
-        
-        if mode=='test':
-            screen_name = self.request.get("name")
-            self_key = self.request.get("key")
-            user_access_token, user_access_secret  = client.get_access_from_db(screen_name, self_key)
-            self.response.out.write( '%s<---->%s' % (user_access_token, user_access_secret) )
             
     def post(self, mode=''):
         
