@@ -64,6 +64,9 @@ class MainPage(webapp.RequestHandler):
             path_parts.insert(0,'')
             new_path = '/'.join(path_parts).replace('//','/')
             new_netloc = sub_head + '.twitter.com'
+        elif path_parts[1].startswith('search'):
+            new_path = path
+            new_netloc = 'search.twitter.com'
         else:
             new_path = path
             new_netloc = 'twitter.com'
