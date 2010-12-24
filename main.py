@@ -14,8 +14,6 @@ gtap_version = '0.4.1'
 CONSUMER_KEY = 'xzR7LOq6Aeq8uAaGORJHGQ'
 CONSUMER_SECRET = 'bCgaGEfejtE9mzq5pTMZngjnjd6rRL7hf2WBFjT4'
 
-ENFORCE_GZIP = True
-
 gtap_message = """
     <html>
         <head>
@@ -44,12 +42,6 @@ def error_output(handler, content, content_type='text/html', status=503):
     handler.response.out.write("Gtap Server Error:<br />")
     return handler.response.out.write(content)
 
-def compress_buf(buf):
-    zbuf = StringIO.StringIO()
-    zfile = gzip.GzipFile(None, 'wb', 9, zbuf)
-    zfile.write(buf)
-    zfile.close()
-    return zbuf.getvalue()
 
 class MainPage(webapp.RequestHandler):
 
@@ -213,6 +205,7 @@ class OauthPage(webapp.RequestHandler):
                 </form></p></body></html>
                 """ % (self.request.host_url, screen_name, self_key)
             self.response.out.write( out_message )
+        
             
     def post(self, mode=''):
         
@@ -244,6 +237,11 @@ class OauthPage(webapp.RequestHandler):
                     logging.debug("new_key:" + new_key)
                     logging.debug( error_message )
                     self.response.out.write( error_message )
+
+        if mode=='access_token':
+            # TwitBird needs this to
+            error_output(self, 'Oops!')
+
 
 def main():
     application = webapp.WSGIApplication( [
