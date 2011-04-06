@@ -30,13 +30,13 @@ gtap_message = """
     """
 
 def success_output(handler, content, content_type='text/html'):
-    handler.response.status = '200 OK'
+    handler.response.set_status(200)
     handler.response.headers.add_header('GTAP-Version', gtap_version)
     handler.response.headers.add_header('Content-Type', content_type)
     handler.response.out.write(content)
 
 def error_output(handler, content, content_type='text/html', status=503):
-    handler.response.set_status(503)
+    handler.response.set_status(status)
     handler.response.headers.add_header('GTAP-Version', gtap_version)
     handler.response.headers.add_header('Content-Type', content_type)
     handler.response.out.write("Gtap Server Error:<br />")
