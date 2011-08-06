@@ -9,7 +9,7 @@ from wsgiref.util import is_hop_by_hop
 from uuid import uuid4
 import oauth
 
-gtap_version = '0.4.1'
+gtap_version = '0.4.2'
 
 CONSUMER_KEY = 'xzR7LOq6Aeq8uAaGORJHGQ'
 CONSUMER_SECRET = 'bCgaGEfejtE9mzq5pTMZngjnjd6rRL7hf2WBFjT4'

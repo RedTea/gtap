@@ -215,7 +215,7 @@ class OAuthClient():
     def save_user_info_into_db(self, username, password, token, secret):
         service = self.service_name
         res = AuthTokenModel.all().filter(
-                            'service =', service).filter('username =', username)
+                            'service =', service).filter('username =', username.lower())
         if res.count() > 0:
             db.delete(res)
 
